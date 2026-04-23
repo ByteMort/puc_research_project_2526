@@ -1,0 +1,4 @@
+handshake-poc.myaddr.dev {
+    reverse_proxy /api/* backend:8080
+    reverse_proxy * frontend:80
+}

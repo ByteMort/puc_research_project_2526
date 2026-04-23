@@ -1,0 +1,68 @@
+name: Deploy to server
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@main
+
+      - name: Install rsync
+        run: sudo apt-get update && sudo apt-get install -y rsync
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      - name: Ensure target directory exists
+        uses: appleboy/ssh-action@master
+        with:
+          host:     ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key:      ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            mkdir -p /home/${{ secrets.SERVER_USER }}/handshake-poc
+
+      - name: Sync files to server
+        run: |
+          rsync -avz --delete \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude '.idea' \
+            --exclude '.env*' \
+            --exclude 'backend/target/' \
+            --exclude 'frontend/node_modules/' \
+            --exclude 'frontend/dist/' \
+            -e "ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key" \
+            ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/${{ secrets.SERVER_USER }}/handshake-poc/
+
+      - name: Deploy with Docker Compose
+        uses: appleboy/ssh-action@master
+        with:
+          host:        ${{ secrets.SERVER_HOST }}
+          username:    ${{ secrets.SERVER_USER }}
+          key:         ${{ secrets.SERVER_SSH_KEY }}
+          script_stop: true
+          script: |
+            cd /home/${{ secrets.SERVER_USER }}/handshake-poc
+
+            # Ensure Docker Compose v2 is available
+            if ! command -v docker compose &> /dev/null; then
+              sudo apt-get update && sudo apt-get install -y docker-compose-v2
+            fi
+
+            docker compose down
+            docker compose up -d --build --remove-orphans
+
+            # Clean up dangling images from the rebuild
+            docker image prune -f
+
+            echo "✅ Deployed $(git -C /home/${{ secrets.SERVER_USER }}/handshake-poc rev-parse --short HEAD 2>/dev/null || echo 'rsync deploy')"

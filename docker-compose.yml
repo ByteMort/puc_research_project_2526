@@ -1,14 +1,35 @@
 services:
   backend:
     build: ./backend
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+    restart: unless-stopped
 
   frontend:
     build: ./frontend
-    ports:
-      - "80:80"
+    expose:
+      - "80"
     depends_on:
       - backend
+    restart: unless-stopped
+
+  caddy:
+    image: caddy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
