@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Handshake – GDPR PoC</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-light: #eef2ff;
+      --success: #16a34a;
+      --success-light: #dcfce7;
+      --danger: #dc2626;
+      --danger-light: #fee2e2;
+      --warn: #d97706;
+      --warn-light: #fef3c7;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --text: #1e293b;
+      --muted: #64748b;
+      --code-bg: #1e1e2e;
+      --code-text: #cdd6f4;
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 2rem 1rem;
+    }
+
+    .container { max-width: 900px; margin: 0 auto; }
+
+    /* ── TABS ── */
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 0;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      padding: 0.6rem 1.1rem;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--muted);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: color 0.15s, border-color 0.15s;
+      border-radius: 4px 4px 0 0;
+    }
+
+    .tab-btn:hover { color: var(--primary); }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── HEADER ── */
+    header { text-align: center; margin-bottom: 2rem; }
+    header .badge {
+      display: inline-block;
+      background: var(--primary-light);
+      color: var(--primary);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.25rem 0.75rem;
+      border-radius: 99px;
+      margin-bottom: 0.75rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    header h1 { font-size: 2rem; font-weight: 700; }
+    header p { color: var(--muted); margin-top: 0.4rem; }
+
+    /* ── GRID ── */
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem; }
+    .grid.triple { grid-template-columns: 1fr 1fr 1fr; }
+    @media(max-width:640px) {
+      .grid, .grid.triple { grid-template-columns: 1fr; }
+      header h1 { font-size: 1.4rem; }
+    }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+    }
+    .card.full { grid-column: 1 / -1; }
+    .card h2 { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+
+    /* ── BUTTON ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      padding: 0.55rem 1.1rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn:hover { opacity: 0.88; }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-success { background: var(--success); color: white; }
+    .btn-danger  { background: var(--danger);  color: white; }
+    .btn-outline { background: white; color: var(--primary); border: 1.5px solid var(--primary); }
+    .btn-sm { padding: 0.35rem 0.75rem; font-size: 0.78rem; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── FORM ── */
+    label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.3rem; color: var(--muted); }
+    input, select {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.875rem;
+      outline: none;
+      transition: border-color 0.15s;
+      background: white;
+      color: var(--text);
+    }
+    input:focus, select:focus { border-color: var(--primary); }
+    .form-group { margin-bottom: 0.9rem; }
+
+    /* ── QR BOX ── */
+    .qr-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    #qr-canvas {
+      background: white;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1.5px solid var(--border);
+    }
+    #qr-canvas canvas, #qr-canvas img { display: block; }
+
+    /* ── TOKEN BOX ── */
+    .token-box {
+      background: var(--code-bg);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      font-family: monospace;
+      font-size: 0.78rem;
+      color: var(--code-text);
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      word-break: break-all;
+    }
+    .token-line { display: flex; gap: 0.5rem; align-items: flex-start; }
+    .token-key   { color: #89b4fa; flex-shrink: 0; }
+    .token-val   { color: #a6e3a1; }
+    .token-val.absent { color: #6c7086; font-style: italic; }
+    .token-val.red    { color: #f38ba8; }
+
+    /* ── STATUS BADGE ── */
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 99px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .status.valid   { background: var(--success-light); color: var(--success); }
+    .status.invalid { background: var(--danger-light);  color: var(--danger);  }
+    .status.used    { background: var(--warn-light);    color: var(--warn);    }
+    .status.pending { background: var(--primary-light); color: var(--primary); }
+
+    /* ── LOG ── */
+    .log {
+      background: var(--code-bg);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-family: monospace;
+      font-size: 0.75rem;
+      max-height: 200px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+    .log-line { display: flex; gap: 0.6rem; }
+    .log-time { color: #6c7086; flex-shrink: 0; }
+    .log-ok   { color: #a6e3a1; }
+    .log-err  { color: #f38ba8; }
+    .log-warn { color: #fab387; }
+    .log-info { color: #89b4fa; }
+
+    /* ── ALERT ── */
+    .alert {
+      border-radius: 8px;
+      padding: 0.7rem 1rem;
+      font-size: 0.82rem;
+      display: flex;
+      gap: 0.5rem;
+      align-items: flex-start;
+      margin-top: 0.75rem;
+    }
+    .alert.info    { background: var(--primary-light); color: var(--primary); }
+    .alert.success { background: var(--success-light); color: var(--success); }
+    .alert.danger  { background: var(--danger-light);  color: var(--danger);  }
+    .alert.warn    { background: var(--warn-light);    color: var(--warn);    }
+
+    /* ── FLOW ── */
+    .flow { display: flex; flex-direction: column; gap: 0; }
+    .flow-step { display: flex; align-items: flex-start; gap: 1rem; }
+    .flow-left { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+    .flow-dot {
+      width: 34px; height: 34px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.875rem; font-weight: 700; flex-shrink: 0;
+    }
+    .flow-line { width: 2px; flex: 1; min-height: 16px; background: var(--border); margin: 3px 0; }
+    .flow-step:last-child .flow-line { display: none; }
+    .flow-content { padding-bottom: 1rem; flex: 1; }
+    .flow-content strong { display: block; font-size: 0.875rem; font-weight: 600; }
+    .flow-content span   { font-size: 0.8rem; color: var(--muted); }
+
+    /* ── ERD ── */
+    .erd { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-start; justify-content: center; }
+    .erd-table { border: 2px solid var(--border); border-radius: 8px; overflow: hidden; min-width: 150px; flex: 1; }
+    .erd-table.highlight { border-color: var(--primary); }
+    .erd-header { padding: 0.4rem 0.75rem; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; background: var(--border); color: var(--muted); }
+    .erd-table.highlight .erd-header { background: var(--primary); color: white; }
+    .erd-row { display: flex; justify-content: space-between; align-items: center; padding: 0.28rem 0.75rem; font-size: 0.76rem; border-top: 1px solid var(--border); gap: 0.4rem; }
+    .erd-row .field { color: var(--text); font-family: monospace; }
+    .erd-row .type  { color: var(--muted); font-size: 0.68rem; }
+    .tag { font-size: 0.62rem; font-weight: 700; padding: 0.1rem 0.3rem; border-radius: 4px; text-transform: uppercase; }
+    .tag.pk   { background: #fef9c3; color: #854d0e; }
+    .tag.fk   { background: #e0f2fe; color: #075985; }
+    .tag.anon { background: var(--success-light); color: var(--success); }
+    .tag.pii  { background: var(--danger-light);  color: var(--danger);  }
+    .erd-arrow { display: flex; align-items: center; color: var(--muted); font-size: 1.4rem; padding-top: 1.8rem; }
+
+    /* ── CHECKLIST ── */
+    .checklist { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
+    .checklist li { display: flex; align-items: flex-start; gap: 0.6rem; font-size: 0.875rem; }
+    .check-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; flex-shrink: 0; margin-top: 2px; }
+    .check-icon.ok   { background: var(--success-light); color: var(--success); }
+    .check-icon.warn { background: var(--warn-light);    color: var(--warn);    }
+
+    /* ── DB TABLE ── */
+    .db-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    .db-table th { background: var(--bg); padding: 0.4rem 0.75rem; text-align: left; font-weight: 600; font-size: 0.72rem; color: var(--muted); border-bottom: 2px solid var(--border); }
+    .db-table td { padding: 0.4rem 0.75rem; border-bottom: 1px solid var(--border); font-family: monospace; vertical-align: middle; }
+    .db-table tr:last-child td { border-bottom: none; }
+    .db-table tr.used-row td  { color: var(--muted); text-decoration: line-through; }
+    .db-table tr.new-row { animation: highlight 1.5s ease; }
+    @keyframes highlight { from { background: #eef2ff; } to { background: transparent; } }
+
+    /* ── ATTACK SIM ── */
+    .attack-steps { display: flex; flex-direction: column; gap: 0.6rem; }
+    .attack-step {
+      display: flex; gap: 0.75rem; align-items: flex-start;
+      padding: 0.75rem; border-radius: 8px; border: 1.5px solid var(--border);
+      font-size: 0.82rem; transition: border-color 0.3s, background 0.3s;
+    }
+    .attack-step.active   { border-color: var(--warn);    background: var(--warn-light);    }
+    .attack-step.blocked  { border-color: var(--danger);  background: var(--danger-light);  }
+    .attack-step.allowed  { border-color: var(--success); background: var(--success-light); }
+    .attack-icon { font-size: 1.1rem; flex-shrink: 0; }
+
+    footer {
+      text-align: center;
+      margin-top: 2.5rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    footer a { color: var(--primary); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    .divider { height: 1px; background: var(--border); margin: 1rem 0; }
+    .flex-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+    .spacer { flex: 1; }
+    .pill {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 99px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .pill.blue   { background: #e0f2fe; color: #075985; }
+    .pill.green  { background: var(--success-light); color: var(--success); }
+    .pill.red    { background: var(--danger-light);  color: var(--danger);  }
+    .pill.purple { background: var(--primary-light); color: var(--primary); }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="badge">Proof of Concept</div>
+    <h1>🤝 Handshake – GDPR-conforme QR-architectuur</h1>
+    <p>Interactieve demonstratie van veilige, eenmalige QR-codes zonder persoonsgegevens</p>
+  </header>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab('tab-poc')">🧪 PoC Demo</button>
+    <button class="tab-btn" onclick="showTab('tab-db')">🗄️ Simulated Database</button>
+    <button class="tab-btn" onclick="showTab('tab-attack')">⚔️ Aanvalssimulatie</button>
+    <button class="tab-btn" onclick="showTab('tab-arch')">📐 Architectuur</button>
+    <button class="tab-btn" onclick="showTab('tab-gdpr')">✅ GDPR</button>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       TAB 1 – POC DEMO
+  ══════════════════════════════════════════ -->
+  <div id="tab-poc" class="tab-panel active">
+    <div class="grid">
+
+      <!-- Stap 1: Genereer QR -->
+      <div class="card">
+        <h2>① Genereer QR-token</h2>
+        <div class="form-group">
+          <label>Contactmoment</label>
+          <select id="cm-select">
+            <option value="cm_001">Hoorcollege – Webbeveiliging (09:00)</option>
+            <option value="cm_002">Werkgroep – GDPR Praktijk (11:00)</option>
+            <option value="cm_003">Stagegesprek – Mentorgesprek (14:00)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Geldigheid (minuten)</label>
+          <select id="ttl-select">
+            <option value="5">5 minuten</option>
+            <option value="15" selected>15 minuten</option>
+            <option value="60">60 minuten</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="generateToken()" style="width:100%">
+          ⚡ Genereer QR-code
+        </button>
+
+        <div id="token-info" style="display:none; margin-top:1rem;">
+          <div class="divider"></div>
+          <div class="flex-row" style="margin-bottom:0.5rem;">
+            <span style="font-size:0.8rem;font-weight:600;">Token status</span>
+            <span class="spacer"></span>
+            <span id="token-status-badge" class="status valid">● Geldig</span>
+          </div>
+          <div class="token-box" id="token-display"></div>
+        </div>
+      </div>
+
+      <!-- Stap 2: QR-code -->
+      <div class="card">
+        <h2>② QR-code</h2>
+        <div class="qr-wrapper">
+          <div id="qr-canvas" style="min-width:180px;min-height:180px;display:flex;align-items:center;justify-content:center;">
+            <span style="color:var(--muted);font-size:0.8rem;">Genereer eerst een token →</span>
+          </div>
+          <div id="qr-meta" style="display:none;width:100%;">
+            <div class="alert info" id="qr-info-box">
+              ℹ️ De QR-code bevat enkel een anoniem token — geen naam, e-mail of gebruiker-ID.
+            </div>
+            <div style="margin-top:0.75rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+              <button class="btn btn-success btn-sm" onclick="simulateScan()">📱 Simuleer scan (geldig)</button>
+              <button class="btn btn-danger btn-sm" onclick="simulateReplay()">♻️ Replay-aanval</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Stap 3: Server response -->
+    <div class="grid">
+      <div class="card">
+        <h2>③ Server-validatie response</h2>
+        <div id="server-response">
+          <div class="alert info">Nog geen scan gesimuleerd.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>📋 Server log</h2>
+        <div class="log" id="server-log">
+          <div class="log-line"><span class="log-time">[ready]</span><span class="log-info">Server klaar voor verzoeken...</span></div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="clearLog()" style="margin-top:0.6rem;">🗑 Log wissen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       TAB 2 – DATABASE
+  ══════════════════════════════════════════ -->
+  <div id="tab-db" class="tab-panel">
+    <div class="grid">
+
+      <div class="card full">
+        <h2>🗄️ qr_tokens tabel (server-side, nooit in QR-code)</h2>
+        <table class="db-table" id="db-tokens-table">
+          <thead>
+            <tr>
+              <th>token_hash (eerste 16 tekens)</th>
+              <th>contactmoment_id</th>
+              <th>vervaldatum</th>
+              <th>gebruikt</th>
+              <th>status</th>
+            </tr>
+          </thead>
+          <tbody id="db-tokens-body">
+            <tr><td colspan="5" style="color:var(--muted);font-style:italic;text-align:center;">Nog geen tokens gegenereerd</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card full">
+        <h2>👤 gebruikers tabel (enkel server-side toegankelijk via RBAC)</h2>
+        <table class="db-table">
+          <thead>
+            <tr><th>id</th><th>naam</th><th>email</th><th>rol</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>uuid-a1b2</td>
+              <td>Jan Janssen <span class="pill red">PII</span></td>
+              <td>jan@school.be <span class="pill red">PII</span></td>
+              <td><span class="pill purple">student</span></td>
+            </tr>
+            <tr>
+              <td>uuid-c3d4</td>
+              <td>Prof. De Smet <span class="pill red">PII</span></td>
+              <td>desmet@school.be <span class="pill red">PII</span></td>
+              <td><span class="pill blue">docent</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="alert warn">
+          ⚠️ Deze tabel is <strong>nooit</strong> toegankelijk via een QR-code. De koppeling verloopt uitsluitend via RBAC server-side.
+        </div>
+      </div>
+
+      <div class="card full">
+        <h2>📅 contactmomenten tabel</h2>
+        <table class="db-table">
+          <thead>
+            <tr><th>id</th><th>omschrijving</th><th>tijdstip</th><th>locatie</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>cm_001</td><td>Hoorcollege – Webbeveiliging</td><td>09:00</td><td>Leslokaal A3</td></tr>
+            <tr><td>cm_002</td><td>Werkgroep – GDPR Praktijk</td><td>11:00</td><td>Leslokaal B1</td></tr>
+            <tr><td>cm_003</td><td>Stagegesprek – Mentorgesprek</td><td>14:00</td><td>Bureel 204</td></tr>
+          </tbody>
+        </table>
+        <div class="alert info">
+          ℹ️ De QR-code bevat enkel een <strong>token_hash</strong> die via de server naar <strong>contactmoment_id</strong> wordt herleid — niet rechtstreeks naar een gebruiker.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       TAB 3 – AANVALSSIMULATIE
+  ══════════════════════════════════════════ -->
+  <div id="tab-attack" class="tab-panel">
+    <div class="grid">
+
+      <div class="card">
+        <h2>♻️ Replay-aanval simulatie</h2>
+        <p style="font-size:0.82rem;color:var(--muted);margin-bottom:1rem;">
+          Een aanvaller kopieert een geldige QR-code en probeert deze opnieuw te scannen nadat ze al gebruikt is.
+        </p>
+        <div class="attack-steps" id="replay-steps">
+          <div class="attack-step" id="rs-1"><span class="attack-icon">📋</span><div><strong>Stap 1</strong><br>Aanvaller kopieert QR-code van poster of scherm.</div></div>
+          <div class="attack-step" id="rs-2"><span class="attack-icon">✅</span><div><strong>Stap 2</strong><br>Originele gebruiker scant — token gemarkeerd als <code>gebruikt = true</code>.</div></div>
+          <div class="attack-step" id="rs-3"><span class="attack-icon">📱</span><div><strong>Stap 3</strong><br>Aanvaller scant dezelfde QR-code opnieuw.</div></div>
+          <div class="attack-step" id="rs-4"><span class="attack-icon">🛡️</span><div><strong>Stap 4</strong><br>Server controleert: token al gebruikt → aanval geblokkeerd.</div></div>
+        </div>
+        <button class="btn btn-danger" onclick="runReplaySimulation()" style="margin-top:1rem;width:100%">▶ Simuleer replay-aanval</button>
+        <div id="replay-result" style="margin-top:0.75rem;"></div>
+      </div>
+
+      <div class="card">
+        <h2>⏰ Verlopen token aanval</h2>
+        <p style="font-size:0.82rem;color:var(--muted);margin-bottom:1rem;">
+          Een aanvaller gebruikt een eerder onderschepte QR-code die ondertussen verlopen is.
+        </p>
+        <div class="attack-steps" id="expire-steps">
+          <div class="attack-step" id="es-1"><span class="attack-icon">📸</span><div><strong>Stap 1</strong><br>Aanvaller onderschept een QR-code (foto, screenshot).</div></div>
+          <div class="attack-step" id="es-2"><span class="attack-icon">⏳</span><div><strong>Stap 2</strong><br>Token vervaldatum verstrijkt (exp < now).</div></div>
+          <div class="attack-step" id="es-3"><span class="attack-icon">📱</span><div><strong>Stap 3</strong><br>Aanvaller scant de verlopen QR-code.</div></div>
+          <div class="attack-step" id="es-4"><span class="attack-icon">🛡️</span><div><strong>Stap 4</strong><br>Server controleert: exp verlopen → aanval geblokkeerd.</div></div>
+        </div>
+        <button class="btn btn-warn" onclick="runExpireSimulation()" style="margin-top:1rem;width:100%;background:var(--warn);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;padding:0.55rem;">▶ Simuleer verlopen token</button>
+        <div id="expire-result" style="margin-top:0.75rem;"></div>
+      </div>
+
+      <div class="card full">
+        <h2>🎯 Aanvalsmatrix</h2>
+        <table class="db-table">
+          <thead>
+            <tr><th>Aanvalsvector</th><th>Beschrijving</th><th>Maatregel</th><th>Resultaat</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Replay-aanval</td>
+              <td>Gekopieerde QR opnieuw scannen</td>
+              <td><span class="pill blue">Eenmalig token</span></td>
+              <td><span class="pill green">✓ Geblokkeerd</span></td>
+            </tr>
+            <tr>
+              <td>Verlopen token</td>
+              <td>Oude QR later scannen</td>
+              <td><span class="pill blue">JWT exp claim</span></td>
+              <td><span class="pill green">✓ Geblokkeerd</span></td>
+            </tr>
+            <tr>
+              <td>PII-extractie</td>
+              <td>Persoonsgegevens uit QR lezen</td>
+              <td><span class="pill blue">Anoniem token</span></td>
+              <td><span class="pill green">✓ Onmogelijk</span></td>
+            </tr>
+            <tr>
+              <td>Token vervalsing</td>
+              <td>Nep-token aanmaken</td>
+              <td><span class="pill blue">HMAC handtekening</span></td>
+              <td><span class="pill green">✓ Geblokkeerd</span></td>
+            </tr>
+            <tr>
+              <td>RAH-aanval (Medusa)</td>
+              <td>Kwaadaardige code via QR triggeren</td>
+              <td><span class="pill blue">Server-side validatie</span></td>
+              <td><span class="pill green">✓ Geblokkeerd</span></td>
+            </tr>
+            <tr>
+              <td>Sociale engineering</td>
+              <td>Gebruiker misleiden via nep-QR</td>
+              <td><span class="pill blue">Bevestigingsscherm</span></td>
+              <td><span class="pill red">⚠ Gedeeltelijk</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       TAB 4 – ARCHITECTUUR
+  ══════════════════════════════════════════ -->
+  <div id="tab-arch" class="tab-panel">
+    <div class="grid">
+
+      <div class="card">
+        <h2>⚡ Scanflow</h2>
+        <div class="flow">
+          <div class="flow-step">
+            <div class="flow-left"><div class="flow-dot" style="background:#eef2ff;color:#4f46e5;">1</div><div class="flow-line"></div></div>
+            <div class="flow-content"><strong>QR-code gegenereerd</strong><span>Server maakt tijdgebonden JWT aan — enkel anoniem token_hash in QR.</span></div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-left"><div class="flow-dot" style="background:#eef2ff;color:#4f46e5;">2</div><div class="flow-line"></div></div>
+            <div class="flow-content"><strong>Gebruiker scant</strong><span>App stuurt token naar server — geen persoonsgegevens in de payload.</span></div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-left"><div class="flow-dot" style="background:#eef2ff;color:#4f46e5;">3</div><div class="flow-line"></div></div>
+            <div class="flow-content"><strong>Server valideert JWT</strong><span>Controle: handtekening geldig? Niet verlopen? Nog niet gebruikt?</span></div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-left"><div class="flow-dot" style="background:#eef2ff;color:#4f46e5;">4</div><div class="flow-line"></div></div>
+            <div class="flow-content"><strong>RBAC-check</strong><span>Heeft de ingelogde gebruiker recht om dit contactmoment te registreren?</span></div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-left"><div class="flow-dot" style="background:#dcfce7;color:#16a34a;">✓</div><div class="flow-line"></div></div>
+            <div class="flow-content"><strong>Registratie bevestigd</strong><span>Contactmoment geregistreerd, token gemarkeerd als gebruikt.</span></div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-left"><div class="flow-dot" style="background:#fee2e2;color:#dc2626;">✗</div><div class="flow-line"></div></div>
+            <div class="flow-content"><strong>Token ongeldig verklaard</strong><span>Replay-aanvallen zijn niet meer mogelijk.</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>🏗️ Componentendiagram</h2>
+        <div style="display:flex;flex-direction:column;gap:0.5rem;font-size:0.82rem;">
+          <div style="background:var(--primary-light);border:1.5px solid var(--primary);border-radius:8px;padding:0.6rem 0.9rem;">
+            <strong>📱 Client (app)</strong><br>
+            <span style="color:var(--muted);">Toont QR-code · Stuurt token naar API · Toont bevestigingsscherm</span>
+          </div>
+          <div style="text-align:center;color:var(--muted);font-size:0.9rem;">⬇ HTTPS (token only, geen PII)</div>
+          <div style="background:#f0fdf4;border:1.5px solid var(--success);border-radius:8px;padding:0.6rem 0.9rem;">
+            <strong>⚙️ API Server</strong><br>
+            <span style="color:var(--muted);">JWT validatie · RBAC check · Token invalidatie · GDPR-filter</span>
+          </div>
+          <div style="text-align:center;color:var(--muted);font-size:0.9rem;">⬇ Interne query (nooit extern)</div>
+          <div style="background:#fef9c3;border:1.5px solid #ca8a04;border-radius:8px;padding:0.6rem 0.9rem;">
+            <strong>🗄️ Database</strong><br>
+            <span style="color:var(--muted);">qr_tokens · contactmomenten · gebruikers (PII afgeschermd)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card full">
+        <h2>🗄️ ERD – Databaseschema</h2>
+        <div class="erd">
+          <div class="erd-table">
+            <div class="erd-header">👤 gebruikers</div>
+            <div class="erd-row"><span class="field">id</span><span class="type">UUID</span><span class="tag pk">PK</span></div>
+            <div class="erd-row"><span class="field">naam</span><span class="type">VARCHAR</span><span class="tag pii">PII</span></div>
+            <div class="erd-row"><span class="field">email</span><span class="type">VARCHAR</span><span class="tag pii">PII</span></div>
+            <div class="erd-row"><span class="field">rol</span><span class="type">ENUM</span></div>
+          </div>
+          <div class="erd-arrow">→</div>
+          <div class="erd-table">
+            <div class="erd-header">📅 contactmomenten</div>
+            <div class="erd-row"><span class="field">id</span><span class="type">UUID</span><span class="tag pk">PK</span></div>
+            <div class="erd-row"><span class="field">gebruiker_id</span><span class="type">UUID</span><span class="tag fk">FK</span></div>
+            <div class="erd-row"><span class="field">tijdstip</span><span class="type">TIMESTAMP</span></div>
+            <div class="erd-row"><span class="field">locatie</span><span class="type">VARCHAR</span></div>
+          </div>
+          <div class="erd-arrow">→</div>
+          <div class="erd-table highlight">
+            <div class="erd-header">📱 qr_tokens</div>
+            <div class="erd-row"><span class="field">id</span><span class="type">UUID</span><span class="tag pk">PK</span></div>
+            <div class="erd-row"><span class="field">contactmoment_id</span><span class="type">UUID</span><span class="tag fk">FK</span></div>
+            <div class="erd-row"><span class="field">token_hash</span><span class="type">VARCHAR</span><span class="tag anon">ANON</span></div>
+            <div class="erd-row"><span class="field">vervaldatum</span><span class="type">TIMESTAMP</span></div>
+            <div class="erd-row"><span class="field">gebruikt</span><span class="type">BOOLEAN</span></div>
+          </div>
+        </div>
+        <div class="alert success" style="margin-top:1rem;">
+          ✅ <strong>qr_tokens</strong> heeft geen directe FK naar <strong>gebruikers</strong>. De koppeling verloopt altijd via <strong>contactmomenten</strong> — enkel toegankelijk via RBAC.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       TAB 5 – GDPR
+  ══════════════════════════════════════════ -->
+  <div id="tab-gdpr" class="tab-panel">
+    <div class="grid">
+      <div class="card full">
+        <h2>✅ GDPR-conformiteitscheck</h2>
+        <ul class="checklist">
+          <li><span class="check-icon ok">✓</span><span><strong>Geen persoonsgegevens in QR-code</strong> — token is een anonieme hash zonder identificeerbare informatie.</span></li>
+          <li><span class="check-icon ok">✓</span><span><strong>Privacy by design</strong> — de databasestructuur maakt directe blootstelling van PII via QR architecturaal onmogelijk.</span></li>
+          <li><span class="check-icon ok">✓</span><span><strong>Eenmalig gebruik</strong> — tokens worden na scan onbruikbaar, replay-aanvallen zijn niet mogelijk.</span></li>
+          <li><span class="check-icon ok">✓</span><span><strong>Tijdsgebonden</strong> — verlopen tokens worden server-side geweigerd via JWT <code>exp</code> claim.</span></li>
+          <li><span class="check-icon ok">✓</span><span><strong>RBAC</strong> — enkel geautoriseerde rollen kunnen een token koppelen aan een persoon.</span></li>
+          <li><span class="check-icon ok">✓</span><span><strong>Cryptografische handtekening</strong> — HMAC voorkomt het vervalsen van tokens (Medusa-aanval).</span></li>
+          <li><span class="check-icon warn">⚠</span><span><strong>Dataminimalisatie</strong> — aanbevolen: sla enkel op wat strikt noodzakelijk is in de contactmomenten-tabel.</span></li>
+          <li><span class="check-icon warn">⚠</span><span><strong>Recht op vergetelheid</strong> — beleid voor verwijdering van verlopen tokens na retentieperiode aanbevolen.</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>
+      Handshake Proof of Concept &nbsp;·&nbsp;
+      <a href="https://github.com/ByteMort/puc_research_project_2526" target="_blank">GitHub Repository</a>
+      &nbsp;·&nbsp;
+      <a href="https://handshake.myaddr.dev/erd.png" target="_blank">ERD Schema</a>
+    </p>
+    <p style="margin-top:0.4rem;">PUC Research Project 2025–2026</p>
+  </footer>
+
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// SIMULATED SERVER STATE
+// ══════════════════════════════════════════
+const serverDB = {
+  tokens: [],         // { hash, tokenFull, cmId, exp, used }
+  scans: []           // audit log
+};
+
+let currentToken = null;
+
+const cmLabels = {
+  cm_001: 'Hoorcollege – Webbeveiliging',
+  cm_002: 'Werkgroep – GDPR Praktijk',
+  cm_003: 'Stagegesprek – Mentorgesprek'
+};
+
+// ══════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════
+function randomHex(n) {
+  return Array.from(crypto.getRandomValues(new Uint8Array(n)))
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function makeJWT(cmId, ttlMinutes) {
+  const header  = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).replace(/=/g,'');
+  const now     = Math.floor(Date.now() / 1000);
+  const payload = btoa(JSON.stringify({
+    jti: randomHex(16),
+    cm:  cmId,
+    iat: now,
+    exp: now + ttlMinutes * 60
+  })).replace(/=/g,'');
+  const sig = randomHex(32); // simulated HMAC
+  return `${header}.${payload}.${sig}`;
+}
+
+function decodeJWT(token) {
+  try {
+    const parts = token.split('.');
+    return JSON.parse(atob(parts[1]));
+  } catch { return null; }
+}
+
+function timestamp() {
+  return new Date().toTimeString().slice(0,8);
+}
+
+// ══════════════════════════════════════════
+// LOG
+// ══════════════════════════════════════════
+function addLog(msg, type = 'info') {
+  const log = document.getElementById('server-log');
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="log-time">[${timestamp()}]</span><span class="log-${type}">${msg}</span>`;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+function clearLog() {
+  const log = document.getElementById('server-log');
+  log.innerHTML = '<div class="log-line"><span class="log-time">[clear]</span><span class="log-info">Log gewist.</span></div>';
+}
+
+// ══════════════════════════════════════════
+// GENERATE TOKEN
+// ══════════════════════════════════════════
+function generateToken() {
+  const cmId = document.getElementById('cm-select').value;
+  const ttl  = parseInt(document.getElementById('ttl-select').value);
+  const token = makeJWT(cmId, ttl);
+  const claims = decodeJWT(token);
+  const hash  = token.substring(0, 16) + '...';
+
+  currentToken = { token, claims, cmId, used: false };
+
+  // Store in simulated DB
+  serverDB.tokens.push({
+    hash:      token.substring(0,16),
+    tokenFull: token,
+    cmId,
+    exp:       claims.exp,
+    used:      false
+  });
+
+  // Show token info
+  const expDate = new Date(claims.exp * 1000).toLocaleTimeString('nl-BE');
+  document.getElementById('token-display').innerHTML = `
+    <div class="token-line"><span class="token-key">"jti":</span><span class="token-val">"${claims.jti}"</span></div>
+    <div class="token-line"><span class="token-key">"cm":</span><span class="token-val">"${cmId}"</span></div>
+    <div class="token-line"><span class="token-key">"exp":</span><span class="token-val">${claims.exp} (${expDate})</span></div>
+    <div class="token-line"><span class="token-key">"used":</span><span class="token-val red">false</span></div>
+    <div class="token-line"><span class="token-key">"naam":</span><span class="token-val absent">// niet aanwezig ✓</span></div>
+    <div class="token-line"><span class="token-key">"email":</span><span class="token-val absent">// niet aanwezig ✓</span></div>
+    <div class="token-line"><span class="token-key">"user_id":</span><span class="token-val absent">// niet aanwezig ✓</span></div>
+  `;
+  document.getElementById('token-info').style.display = 'block';
+  document.getElementById('token-status-badge').className = 'status valid';
+  document.getElementById('token-status-badge').textContent = '● Geldig';
+
+  // Render QR
+  document.getElementById('qr-canvas').innerHTML = '';
+  new QRCode(document.getElementById('qr-canvas'), {
+    text: token,
+    width:  180,
+    height: 180,
+    colorDark:  '#1e293b',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+  document.getElementById('qr-meta').style.display = 'block';
+
+  addLog(`Token gegenereerd voor ${cmId} (geldig tot ${expDate})`, 'info');
+  updateDBView();
+  setServerResponse(null);
+}
+
+// ══════════════════════════════════════════
+// SIMULATE SCAN
+// ══════════════════════════════════════════
+function simulateScan() {
+  if (!currentToken) return;
+  const result = serverValidate(currentToken.token);
+  renderServerResponse(result);
+  updateDBView();
+}
+
+function simulateReplay() {
+  if (!currentToken) return;
+  addLog('Replay-aanval: zelfde token opnieuw ingediend', 'warn');
+  const result = serverValidate(currentToken.token);
+  renderServerResponse(result, true);
+  updateDBView();
+}
+
+// ══════════════════════════════════════════
+// SERVER VALIDATION (simulated)
+// ══════════════════════════════════════════
+function serverValidate(token) {
+  const claims = decodeJWT(token);
+  if (!claims) {
+    addLog('FOUT: Ongeldig token formaat', 'err');
+    return { ok: false, reason: 'Ongeldig token formaat' };
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  if (claims.exp < now) {
+    addLog(`GEWEIGERD: Token verlopen (exp=${claims.exp})`, 'err');
+    return { ok: false, reason: 'Token is verlopen', claims };
+  }
+
+  const dbEntry = serverDB.tokens.find(t => t.tokenFull === token);
+  if (!dbEntry) {
+    addLog('GEWEIGERD: Token niet gevonden in database', 'err');
+    return { ok: false, reason: 'Token niet gevonden', claims };
+  }
+
+  if (dbEntry.used) {
+    addLog(`GEWEIGERD: Token al gebruikt — replay-aanval geblokkeerd!`, 'err');
+    return { ok: false, reason: 'Token al gebruikt (replay-aanval geblokkeerd)', claims };
+  }
+
+  // Valid — mark as used
+  dbEntry.used = true;
+  currentToken.used = true;
+  document.getElementById('token-status-badge').className = 'status used';
+  document.getElementById('token-status-badge').textContent = '● Gebruikt';
+
+  addLog(`OK: Scan geregistreerd voor ${dbEntry.cmId}`, 'ok');
+  addLog(`OK: Token ${token.substring(0,16)}... gemarkeerd als gebruikt`, 'ok');
+
+  return { ok: true, cmId: dbEntry.cmId, claims };
+}
+
+function renderServerResponse(result, isReplay = false) {
+  const el = document.getElementById('server-response');
+  if (result.ok) {
+    el.innerHTML = `
+      <div class="alert success">✅ Scan succesvol gevalideerd</div>
+      <div class="token-box" style="margin-top:0.75rem;">
+        <div class="token-line"><span class="token-key">status:</span><span class="token-val">"200 OK"</span></div>
+        <div class="token-line"><span class="token-key">contactmoment:</span><span class="token-val">"${result.cmId}"</span></div>
+        <div class="token-line"><span class="token-key">label:</span><span class="token-val">"${cmLabels[result.cmId]}"</span></div>
+        <div class="token-line"><span class="token-key">token_used:</span><span class="token-val red">true</span></div>
+        <div class="token-line"><span class="token-key">naam:</span><span class="token-val absent">// niet teruggegeven ✓</span></div>
+        <div class="token-line"><span class="token-key">email:</span><span class="token-val absent">// niet teruggegeven ✓</span></div>
+      </div>`;
+  } else {
+    el.innerHTML = `
+      <div class="alert danger">🚫 Scan geweigerd: ${result.reason}</div>
+      <div class="token-box" style="margin-top:0.75rem;">
+        <div class="token-line"><span class="token-key">status:</span><span class="token-val red">"403 Forbidden"</span></div>
+        <div class="token-line"><span class="token-key">reden:</span><span class="token-val red">"${result.reason}"</span></div>
+        <div class="token-line"><span class="token-key">aanval_geblokkeerd:</span><span class="token-val red">true</span></div>
+      </div>`;
+  }
+}
+
+function setServerResponse(msg) {
+  document.getElementById('server-response').innerHTML =
+    `<div class="alert info">${msg || 'Nog geen scan gesimuleerd.'}</div>`;
+}
+
+// ══════════════════════════════════════════
+// DB VIEW UPDATE
+// ══════════════════════════════════════════
+function updateDBView() {
+  const tbody = document.getElementById('db-tokens-body');
+  if (serverDB.tokens.length === 0) return;
+  tbody.innerHTML = serverDB.tokens.map((t, i) => {
+    const expStr = new Date(t.exp * 1000).toLocaleTimeString('nl-BE');
+    const isNew  = i === serverDB.tokens.length - 1;
+    return `<tr class="${t.used ? 'used-row' : ''} ${isNew ? 'new-row' : ''}">
+      <td>${t.hash}...</td>
+      <td>${t.cmId}</td>
+      <td>${expStr}</td>
+      <td>${t.used ? '✅ ja' : '❌ nee'}</td>
+      <td><span class="status ${t.used ? 'used' : 'valid'}">${t.used ? '● Gebruikt' : '● Geldig'}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+// ATTACK SIMULATIONS
+// ══════════════════════════════════════════
+async function runReplaySimulation() {
+  const steps = ['rs-1','rs-2','rs-3','rs-4'];
+  const classes = ['active','allowed','active','blocked'];
+  const result = document.getElementById('replay-result');
+  result.innerHTML = '';
+
+  // Reset steps
+  steps.forEach(id => {
+    const el = document.getElementById(id);
+    el.className = 'attack-step';
+  });
+
+  for (let i = 0; i < steps.length; i++) {
+    await delay(700);
+    document.getElementById(steps[i]).classList.add(classes[i]);
+  }
+
+  await delay(500);
+  result.innerHTML = `<div class="alert danger">🚫 Replay-aanval geblokkeerd — token was al gebruikt.</div>`;
+}
+
+async function runExpireSimulation() {
+  const steps = ['es-1','es-2','es-3','es-4'];
+  const classes = ['active','warn','active','blocked'];
+  const result = document.getElementById('expire-result');
+  result.innerHTML = '';
+
+  steps.forEach(id => {
+    const el = document.getElementById(id);
+    el.className = 'attack-step';
+  });
+
+  for (let i = 0; i < steps.length; i++) {
+    await delay(700);
+    const el = document.getElementById(steps[i]);
+    if (classes[i] === 'warn') { el.classList.add('active'); }
+    else { el.classList.add(classes[i]); }
+  }
+
+  await delay(500);
+  result.innerHTML = `<div class="alert danger">🚫 Aanval geblokkeerd — token is verlopen (exp &lt; now).</div>`;
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ══════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════
+function showTab(id) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>
