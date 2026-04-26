@@ -24,8 +24,7 @@ Het idee is dat een docent of begeleider een QR-code genereert voor een specifie
 contactmoment (bijvoorbeeld een hoorcollege of werkgroep). Een student scant die code
 om zijn aanwezigheid te registreren.
 
-Het systeem is gebouwd rond een paar concrete beveiligingsprincipes die we in de
-opleiding hebben gezien:
+Het systeem is gebouwd rond een paar concrete beveiligingsprincipes:
 
 **Anonieme tokens**
 De QR-code bevat alleen een willekeurig UUID-token. Er zit geen naam, e-mailadres
