@@ -1,6 +1,8 @@
 Live demo:
 https://handshake-poc.myaddr.dev
 
+De live demo draait via een Amazon AWS Student-account. Deze moet eerst worden geactiveerd en is daarna slechts tijdelijk beschikbaar. Stuur ons gerust een bericht, dan zetten we de demo voor je online.
+
 # 1. Deployment
 
 ## 1.1 Lokaal met Docker:
